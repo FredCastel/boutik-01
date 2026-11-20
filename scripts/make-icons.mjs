@@ -20,7 +20,7 @@ const chunk = (type, data) => {
 }
 
 function png(size) {
-  const bg = [0x6b, 0x3e, 0x26], fg = [0xf3, 0xd9, 0xb8]
+  const bg = [0x25, 0x63, 0xeb], fg = [0xff, 0xff, 0xff]
   const raw = Buffer.alloc((size * 3 + 1) * size)
   const c = size / 2, r = size * 0.3
   for (let y = 0; y < size; y++) {

@@ -14,8 +14,8 @@ export default defineConfig({
         name: 'Boutik',
         short_name: 'Boutik',
         description: 'Gestion des bons de commande et paiements',
-        theme_color: '#6b3e26',
-        background_color: '#fffaf5',
+        theme_color: '#2563eb',
+        background_color: '#f8fafc',
         display: 'standalone',
         lang: 'fr',
         icons: [

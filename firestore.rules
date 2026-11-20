@@ -46,7 +46,12 @@ service cloud.firestore {
     match /associations/{aid} {
       allow read: if canRead(aid);
       allow create, delete: if isSuper();
-      allow update: if isAdmin(aid) && request.resource.data.name is string;
+      // L'administrateur de l'association peut modifier son nom, son site et son logo (taille bornée)
+      allow update: if isAdmin(aid)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && (!('site' in request.resource.data) || request.resource.data.site.size() < 300)
+        && (!('logo' in request.resource.data) || request.resource.data.logo.size() < 300000);
 
       // Toutes les données d'une association (événements, produits, clients, bons, paiements)
       match /{document=**} {

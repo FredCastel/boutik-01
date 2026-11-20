@@ -16,5 +16,7 @@ const app = initializeApp(configured ? config : { apiKey: 'x', projectId: 'x', a
 export const auth = getAuth(app)
 // cache local persistant : l'appli reste utilisable hors-ligne
 export const db = initializeFirestore(app, {
+  // bascule seul sur une connexion plus tolérante si le réseau bloque le mode par défaut
+  experimentalAutoDetectLongPolling: true,
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 })

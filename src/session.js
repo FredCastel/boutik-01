@@ -48,9 +48,10 @@ async function detectSuper() {
   }
 }
 
-async function assocName(aid) {
+async function assocData(aid) {
   const s = await getDoc(doc(db, 'associations', aid))
-  return s.exists() ? s.data().name : aid
+  const d = s.exists() ? s.data() : {}
+  return { name: d.name || aid, logo: d.logo || '', site: d.site || '' }
 }
 
 export async function loadMemberships() {
@@ -58,11 +59,13 @@ export async function loadMemberships() {
   if (!u) return
   if (isSuper.value) {
     const all = await getDocs(collection(db, 'associations'))
-    memberships.value = all.docs.map((d) => ({ aid: d.id, name: d.data().name, role: 'super' }))
+    memberships.value = all.docs.map((d) => ({
+      aid: d.id, name: d.data().name, logo: d.data().logo || '', site: d.data().site || '', role: 'super'
+    }))
   } else {
     const snap = await getDocs(query(collection(db, 'members'), where('uid', '==', u.uid)))
     memberships.value = await Promise.all(
-      snap.docs.map(async (d) => ({ aid: d.data().aid, name: await assocName(d.data().aid), role: d.data().role }))
+      snap.docs.map(async (d) => ({ aid: d.data().aid, ...(await assocData(d.data().aid)), role: d.data().role }))
     )
   }
   memberships.value.sort((a, b) => a.name.localeCompare(b.name))
