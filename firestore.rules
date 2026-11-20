@@ -1,0 +1,87 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Aides ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    // Les super-admins sont listés dans le document config/app (champ superAdmins), créé à la main
+    function isSuper() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/config/app)
+        && get(/databases/$(database)/documents/config/app).data.superAdmins.hasAny([email()]);
+    }
+    function memberDoc(aid) {
+      return /databases/$(database)/documents/members/$(aid + '__' + request.auth.uid);
+    }
+    function isMember(aid) {
+      return signedIn() && exists(memberDoc(aid));
+    }
+    function roleIn(aid) {
+      return get(memberDoc(aid)).data.role;
+    }
+    function canRead(aid) {
+      return isSuper() || isMember(aid);
+    }
+    function canWrite(aid) {
+      return isSuper() || (isMember(aid) && roleIn(aid) in ['admin', 'manager']);
+    }
+    function isAdmin(aid) {
+      return isSuper() || (isMember(aid) && roleIn(aid) == 'admin');
+    }
+
+    // ---------- Configuration (super-admins) ----------
+    match /config/{doc} {
+      allow read: if isSuper();
+      allow write: if false; // modifié uniquement depuis la console Firebase
+    }
+
+    // ---------- Associations ----------
+    match /associations/{aid} {
+      allow read: if canRead(aid);
+      allow create, delete: if isSuper();
+      allow update: if isAdmin(aid) && request.resource.data.name is string;
+
+      // Toutes les données d'une association (événements, produits, clients, bons, paiements)
+      match /{document=**} {
+        allow read: if canRead(aid);
+        allow write: if canWrite(aid);
+      }
+    }
+
+    // ---------- Appartenances : members/{aid}__{uid} ----------
+    match /members/{id} {
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid || isAdmin(resource.data.aid));
+
+      // Un utilisateur crée sa propre appartenance uniquement s'il a une invitation à son email
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == email()
+        && id == request.resource.data.aid + '__' + request.auth.uid
+        && exists(/databases/$(database)/documents/invites/$(request.resource.data.aid + '__' + email()))
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.aid + '__' + email())).data.role == request.resource.data.role;
+
+      allow update: if isAdmin(resource.data.aid)
+        && request.resource.data.aid == resource.data.aid
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if isAdmin(resource.data.aid) || resource.data.uid == request.auth.uid;
+    }
+
+    // ---------- Invitations : invites/{aid}__{email} ----------
+    match /invites/{id} {
+      allow read: if signedIn()
+        && (resource.data.email == email() || isAdmin(resource.data.aid));
+      allow create, update: if isAdmin(request.resource.data.aid)
+        && request.resource.data.role in ['admin', 'manager', 'viewer']
+        && id == request.resource.data.aid + '__' + request.resource.data.email;
+      allow delete: if isAdmin(resource.data.aid) || resource.data.email == email();
+    }
+  }
+}
