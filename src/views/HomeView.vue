@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { current, canWrite, isSuper } from '../session'
 import { useCol, create } from '../db'
-import { summarize } from '../calc'
+import { summarize, orderState } from '../calc'
 import { eur, dateFr, today, PAY_MODES } from '../format'
 import Icon from '../components/Icon.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -28,7 +28,7 @@ const cards = computed(() =>
         orders.value.filter((o) => o.eventId === e.id),
         payments.value.filter((p) => p.eventId === e.id)
       )
-      return { ...e, people: s.people.length, ...s.totals }
+      return { ...e, people: s.people.length, ...s.totals, state: orderState(e) }
     })
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
 )
@@ -108,9 +108,14 @@ async function createEvent() {
     </EmptyState>
 
     <router-link v-for="e in cards" :key="e.id" :to="`/e/${e.id}`" class="row-card link">
+      <img v-if="e.image" :src="e.image" class="thumb" alt="" />
       <div class="grow">
         <div class="title">{{ e.name }}</div>
-        <div class="muted small">{{ dateFr(e.date) }} · {{ e.people }} personne{{ e.people > 1 ? 's' : '' }}</div>
+        <div class="muted small">
+          {{ dateFr(e.date) }} · {{ e.people }} personne{{ e.people > 1 ? 's' : '' }}
+          <span v-if="!e.state.open" class="badge warn" style="margin-left: 4px">{{ e.state.label }}</span>
+          <span v-else-if="e.orderDeadline" class="badge info" style="margin-left: 4px">{{ e.state.label }}</span>
+        </div>
       </div>
       <div class="end">
         <span class="amount">{{ eur(e.total) }}</span>

@@ -32,6 +32,8 @@ import Icon from '../components/Icon.vue'
   <div class="card">
     <h3>Astuces</h3>
     <p><strong>Bons papier à recopier ?</strong> Sur ordinateur, ouvrez un événement puis « Saisie en volume » : un tableau où l'on enchaîne les bons avec Tab et Entrée.</p>
+    <p><strong>Fermer les commandes ?</strong> Dans l'onglet « Catalogue » d'un événement, fixez une « Date de fin » des commandes ou cliquez sur « Clôturer ». Ensuite plus aucun bon ni produit ne bouge, mais les paiements, la livraison et la caisse restent utilisables. Vous pouvez rouvrir à tout moment.</p>
+    <p><strong>Modifier le titre, la description ou l'image d'un événement ?</strong> Bouton « Modifier » à côté du titre de l'événement.</p>
     <p><strong>Où est l'argent ?</strong> L'onglet « Caisse » d'un événement détaille ce qui a été encaissé : espèces, nombre et noms des chèques, virements, et le solde de la caisse. Le menu « Caisse » fait la même chose pour toute l'association, événement par événement.</p>
     <p><strong>Suivre la livraison ?</strong> Chaque bon a un statut « Livré / À livrer » (case « Produits remis » sur le bon, ou bouton sur la fiche de la personne). Dans l'onglet « Bons », le filtre « À livrer » liste ce qu'il reste à remettre.</p>
     <p><strong>Une précision à noter ?</strong> Vous pouvez ajouter une note sur un bon, sur un produit (catalogue) ou sur un client : elle s'affiche à l'endroit utile.</p>

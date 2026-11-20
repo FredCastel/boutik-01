@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { canWrite } from '../session'
 import { useDoc, useCol, where, patch } from '../db'
-import { summarize, linesText, STATUS } from '../calc'
+import { summarize, linesText, STATUS, orderState } from '../calc'
 import { eur, dateFr } from '../format'
 import Icon from '../components/Icon.vue'
 import PaymentsPanel from '../components/PaymentsPanel.vue'
@@ -42,7 +42,7 @@ const byId = computed(() => Object.fromEntries(products.value.map((p) => [p.id, 
           <span v-else>Pas de téléphone</span>
         </p>
       </div>
-      <div v-if="canWrite" class="actions">
+      <div v-if="canWrite && orderState(event).open" class="actions">
         <router-link :to="`/e/${eid}/bon/new?c=${cid}`" class="btn primary"><Icon name="plus" :size="18" /> Ajouter un bon</router-link>
       </div>
     </div>

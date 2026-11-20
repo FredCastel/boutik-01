@@ -69,6 +69,19 @@ const add = () => guard(async () => {
   form.value = { name: '', phone: '' }
 })
 const save = (c, data) => guard(() => patch('clients', c.id, data))
+// modification d'un client : on édite une copie, validée par « Enregistrer »
+const editId = ref(null)
+const draft = ref({ name: '', phone: '', note: '' })
+function startEdit(c) {
+  editId.value = c.id
+  draft.value = { name: c.name, phone: c.phone || '', note: c.note || '' }
+}
+const saveEdit = (c) => guard(async () => {
+  await patch('clients', c.id, {
+    name: draft.value.name.trim() || c.name, phone: draft.value.phone.trim(), note: draft.value.note.trim()
+  })
+  editId.value = null
+})
 const del = (c) => guard(async () => {
   if (await exists('orders', 'clientId', c.id)) throw new Error(`${c.name} a des bons de commande : supprimez-les d'abord.`)
   if (confirm(`Supprimer ${c.name} ?`)) await remove('clients', c.id)
@@ -113,11 +126,24 @@ const del = (c) => guard(async () => {
     </div>
     <p v-if="!list.length" class="muted">Aucun client ne correspond.</p>
     <div v-for="c in list" :key="c.id" class="card" style="padding: 12px 14px">
-      <div class="form-row" style="align-items: center; flex-wrap: nowrap">
-        <input class="grow" :value="c.name" :disabled="!canWrite" aria-label="Nom" @change="save(c, { name: $event.target.value.trim() || c.name })" />
-        <input style="max-width: 170px" :value="c.phone" type="tel" placeholder="Téléphone" :disabled="!canWrite" aria-label="Téléphone"
-          @change="save(c, { phone: $event.target.value.trim() })" />
+      <div v-if="editId === c.id">
+        <div class="form-row">
+          <div class="field" style="flex: 2"><label>Nom</label><input v-model="draft.name" required /></div>
+          <div class="field"><label>Téléphone</label><input v-model="draft.phone" type="tel" /></div>
+        </div>
+        <div class="field" style="margin-top: 8px"><label>Note</label><input v-model="draft.note" placeholder="Note sur ce client (facultatif)" /></div>
+        <div class="form-row" style="margin-top: 10px">
+          <button class="btn primary" @click="saveEdit(c)"><Icon name="check" :size="18" /> Enregistrer</button>
+          <button class="btn" @click="editId = null">Annuler</button>
+        </div>
+      </div>
+      <div v-else class="form-row" style="align-items: center; flex-wrap: nowrap">
+        <div class="grow">
+          <strong>{{ c.name }}</strong>
+          <div v-if="c.phone" class="muted small">{{ c.phone }}</div>
+        </div>
         <a v-if="c.phone" :href="`tel:${c.phone}`" class="btn sm" title="Appeler"><Icon name="phone" :size="16" /></a>
+        <button v-if="canWrite" class="btn sm" title="Modifier ce client" @click="startEdit(c)"><Icon name="edit" :size="16" /> Modifier</button>
         <button v-if="canWrite" class="btn danger sm" title="Supprimer" @click="del(c)"><Icon name="trash" :size="16" /></button>
       </div>
 
@@ -129,8 +155,7 @@ const del = (c) => guard(async () => {
         </span>
         <span class="badge" :class="STATUS[balance[c.id].status].tone">{{ STATUS[balance[c.id].status].label }}</span>
       </div>
-      <input class="note-in" :value="c.note || ''" :disabled="!canWrite" placeholder="Note sur ce client (facultatif)" style="margin-top: 8px"
-        @change="save(c, { note: $event.target.value.trim() })" />
+      <p v-if="c.note && editId !== c.id" class="small note" style="margin: 8px 0 0">{{ c.note }}</p>
 
       <details v-if="history[c.id]?.length" class="hist">
         <summary>

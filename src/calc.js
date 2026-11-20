@@ -1,4 +1,13 @@
-import { round2 } from './format'
+import { round2, today, dateFr } from './format'
+
+// Les commandes sont-elles ouvertes ? Fermées si l'événement est clôturé ou si la date de fin est passée.
+export function orderState(event) {
+  const closed = !!event?.closed
+  const late = !!event?.orderDeadline && today() > event.orderDeadline
+  const open = !closed && !late
+  const label = closed ? 'Clôturé' : late ? 'Commandes terminées' : event?.orderDeadline ? `Commandes jusqu'au ${dateFr(event.orderDeadline)}` : 'Commandes ouvertes'
+  return { closed, late, open, label }
+}
 
 export const EPS = 0.005
 
@@ -95,7 +104,8 @@ export function cashSummary(payments, clients = []) {
     g.items.push({
       id: p.id, eventId: p.eventId, date: p.date || '', amount,
       name: p.payer || names[p.clientId] || '(client supprimé)',
-      client: names[p.clientId] || '', payer: p.payer || ''
+      client: names[p.clientId] || '', payer: p.payer || '',
+      deposited: !!p.deposited, depositedAt: p.depositedAt || ''
     })
   }
   for (const g of Object.values(by)) {
@@ -107,6 +117,12 @@ export function cashSummary(payments, clients = []) {
     total: round2(MODES.reduce((s, m) => s + by[m].amount, 0)),
     count
   }
+}
+
+// Chèques reçus mais pas encore déposés en banque (les remboursements ne comptent pas)
+export function pendingCheques(chequeGroup) {
+  const items = chequeGroup.items.filter((i) => i.amount > 0 && !i.deposited)
+  return { items, count: items.length, amount: round2(items.reduce((s, i) => s + i.amount, 0)) }
 }
 
 // "2 × Boîte 250 g, 1 × Calendrier"

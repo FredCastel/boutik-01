@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { canWrite } from '../session'
 import { db } from '../firebase'
 import { useDoc, useCol, where, docRef, newId, settle, serverTimestamp, writeBatch } from '../db'
-import { byPos, summarize, STATUS } from '../calc'
+import { byPos, summarize, STATUS, orderState } from '../calc'
 import { eur, num, round2, today, PAY_MODES } from '../format'
 import Icon from '../components/Icon.vue'
 
@@ -16,6 +16,8 @@ const { items: clients } = useCol('clients')
 const { items: orders } = useCol('orders', where('eventId', '==', eid))
 const { items: payments } = useCol('payments', where('eventId', '==', eid))
 
+// saisie verrouillée quand les commandes sont closes (événement clôturé ou date de fin dépassée)
+const editable = computed(() => canWrite.value && orderState(event.value).open)
 const sorted = computed(() => [...products.value].sort(byPos))
 const sum = computed(() => summarize(products.value, orders.value, payments.value, clients.value))
 const person = computed(() => Object.fromEntries(sum.value.people.map((p) => [p.clientId, p])))
@@ -154,7 +156,7 @@ async function saveAll() {
       <p class="muted" style="margin: 2px 0 0">Pour recopier rapidement des bons papier et corriger les bons existants.</p>
     </div>
     <div class="actions">
-      <button class="btn primary" :disabled="busy || !canWrite || !pending" @click="saveAll">
+      <button class="btn primary" :disabled="busy || !editable || !pending" @click="saveAll">
         <Icon name="check" :size="18" /> Enregistrer {{ pending ? `(${pending})` : '' }}
       </button>
     </div>
@@ -165,6 +167,7 @@ async function saveAll() {
     Les noms déjà connus sont retrouvés, les nouveaux sont créés, et une même personne peut avoir plusieurs lignes (ses bons se cumulent).
     <strong>Bons enregistrés</strong> : modifiez directement les quantités ou la date, puis Enregistrer.
   </p>
+  <p v-if="canWrite && !editable" class="notice">Les commandes sont closes : la saisie est verrouillée. Rouvrez l'événement ou prolongez la date de fin pour modifier les bons.</p>
   <p v-if="done" class="notice">{{ done }}</p>
   <p v-if="error" class="error">{{ error }}</p>
 
@@ -187,18 +190,18 @@ async function saveAll() {
         </thead>
         <tbody>
           <tr v-for="(r, i) in rows" :key="i">
-            <td><input v-model="r.name" class="nm" list="names" :data-r="i" data-c="0" :disabled="!canWrite" autocomplete="off" @keydown.enter.prevent="enter(i, 0)" /></td>
-            <td><input v-model="r.date" type="date" class="dt" :data-r="i" data-c="1" :disabled="!canWrite" @keydown.enter.prevent="enter(i, 1)" /></td>
+            <td><input v-model="r.name" class="nm" list="names" :data-r="i" data-c="0" :disabled="!editable" autocomplete="off" @keydown.enter.prevent="enter(i, 0)" /></td>
+            <td><input v-model="r.date" type="date" class="dt" :data-r="i" data-c="1" :disabled="!editable" @keydown.enter.prevent="enter(i, 1)" /></td>
             <td v-for="(p, j) in sorted" :key="p.id">
-              <input v-model="r.qty[p.id]" class="q" inputmode="numeric" :data-r="i" :data-c="2 + j" :disabled="!canWrite"
+              <input v-model="r.qty[p.id]" class="q" inputmode="numeric" :data-r="i" :data-c="2 + j" :disabled="!editable"
                 @focus="$event.target.select()" @keydown.enter.prevent="enter(i, 2 + j)" />
             </td>
             <td class="num"><strong>{{ rowTotal(r) ? eur(rowTotal(r)) : '' }}</strong></td>
-            <td class="center"><input v-model="r.delivered" type="checkbox" :disabled="!canWrite" aria-label="Livré" /></td>
-            <td><input v-model="r.paid" class="pd" inputmode="decimal" placeholder="0" :data-r="i" :data-c="2 + sorted.length" :disabled="!canWrite"
+            <td class="center"><input v-model="r.delivered" type="checkbox" :disabled="!editable" aria-label="Livré" /></td>
+            <td><input v-model="r.paid" class="pd" inputmode="decimal" placeholder="0" :data-r="i" :data-c="2 + sorted.length" :disabled="!editable"
                 @focus="$event.target.select()" @keydown.enter.prevent="enter(i, 2 + sorted.length)" /></td>
             <td>
-              <select v-model="r.mode" class="md" :data-r="i" :data-c="3 + sorted.length" :disabled="!canWrite">
+              <select v-model="r.mode" class="md" :data-r="i" :data-c="3 + sorted.length" :disabled="!editable">
                 <option value="">Habituel</option>
                 <option v-for="(l, k) in PAY_MODES" :key="k" :value="k">{{ l }}</option>
               </select>
@@ -227,12 +230,12 @@ async function saveAll() {
             <template v-for="o in existing" :key="o.id">
               <tr v-if="edits[o.id]" :class="{ edited: isDirty(o) }">
                 <td><strong>{{ nameOf(o) }}</strong></td>
-                <td><input v-model="edits[o.id].date" type="date" class="dt" :disabled="!canWrite" /></td>
+                <td><input v-model="edits[o.id].date" type="date" class="dt" :disabled="!editable" /></td>
                 <td v-for="p in sorted" :key="p.id">
-                  <input v-model="edits[o.id].qty[p.id]" class="q" inputmode="numeric" :disabled="!canWrite" @focus="$event.target.select()" />
+                  <input v-model="edits[o.id].qty[p.id]" class="q" inputmode="numeric" :disabled="!editable" @focus="$event.target.select()" />
                 </td>
                 <td class="num"><strong>{{ eur(editTotal(o)) }}</strong></td>
-                <td class="center"><input v-model="edits[o.id].delivered" type="checkbox" :disabled="!canWrite" aria-label="Livré" /></td>
+                <td class="center"><input v-model="edits[o.id].delivered" type="checkbox" :disabled="!editable" aria-label="Livré" /></td>
                 <td class="num">{{ eur(person[o.clientId]?.paid || 0) }}</td>
                 <td><span v-if="person[o.clientId]" class="badge" :class="STATUS[person[o.clientId].status].tone">{{ STATUS[person[o.clientId].status].label }}</span></td>
                 <td><router-link :to="`/e/${eid}/bon/${o.id}`" class="btn sm" title="Ouvrir le bon et ses paiements"><Icon name="edit" :size="16" /></router-link></td>

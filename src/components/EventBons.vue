@@ -6,7 +6,7 @@ import { EPS, STATUS } from '../calc'
 import Icon from './Icon.vue'
 import EmptyState from './EmptyState.vue'
 
-const props = defineProps({ eid: String, event: Object, sum: Object, products: Array, canWrite: Boolean })
+const props = defineProps({ eid: String, event: Object, sum: Object, products: Array, canWrite: Boolean, open: { type: Boolean, default: true } })
 const emit = defineEmits(['tab'])
 
 const q = ref('')
@@ -50,12 +50,12 @@ async function solder(p) {
 
   <EmptyState v-if="!products.length" icon="package" title="Commencez par le catalogue"
     text="Avant de saisir des bons de commande, ajoutez les produits de cet événement avec leurs prix.">
-    <button v-if="canWrite" class="btn primary" @click="emit('tab', 'catalogue')"><Icon name="plus" :size="18" /> Ajouter des produits</button>
+    <button v-if="canWrite && open" class="btn primary" @click="emit('tab', 'catalogue')"><Icon name="plus" :size="18" /> Ajouter des produits</button>
   </EmptyState>
 
   <EmptyState v-else-if="!sum.people.length" icon="clipboard" title="Aucun bon de commande"
     text="Saisissez le premier bon : choisissez la personne, indiquez les quantités, et c'est enregistré.">
-    <router-link v-if="canWrite" :to="`/e/${eid}/bon/new`" class="btn primary"><Icon name="plus" :size="18" /> Nouveau bon</router-link>
+    <router-link v-if="canWrite && open" :to="`/e/${eid}/bon/new`" class="btn primary"><Icon name="plus" :size="18" /> Nouveau bon</router-link>
   </EmptyState>
 
   <template v-else>

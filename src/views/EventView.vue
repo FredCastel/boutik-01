@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canWrite, current } from '../session'
 import { useDoc, useCol, where } from '../db'
-import { summarize } from '../calc'
+import { summarize, orderState } from '../calc'
 import { eur, dateFr } from '../format'
 import Icon from '../components/Icon.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -22,6 +22,12 @@ const { items: orders } = useCol('orders', where('eventId', '==', eid))
 const { items: payments } = useCol('payments', where('eventId', '==', eid))
 const { items: clients } = useCol('clients')
 
+const state = computed(() => orderState(event.value))
+// ouvre l'onglet des réglages et descend jusqu'au formulaire de modification
+function editSettings() {
+  tab.value = 'catalogue'
+  setTimeout(() => document.getElementById('event-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
+}
 const sum = computed(() => summarize(products.value, orders.value, payments.value, clients.value))
 const tab = computed({
   get: () => route.query.tab || 'bons',
@@ -41,7 +47,8 @@ function setGuide(hidden) {
   hideGuide.value = hidden
   try { localStorage.setItem(GUIDE_KEY, hidden ? '1' : '0') } catch { /* ignoré */ }
 }
-const showGuide = computed(() => canWrite.value && !(products.value.length && orders.value.length && payments.value.length))
+// le guide reste toujours disponible : on peut seulement le réduire
+const doneSteps = computed(() => steps.value.slice(0, 3).filter((s) => s.done).length)
 </script>
 
 <template>
@@ -55,13 +62,32 @@ const showGuide = computed(() => canWrite.value && !(products.value.length && or
     <router-link to="/" class="back no-print"><Icon name="back" :size="16" /> Événements</router-link>
     <div class="page-head">
       <div>
-        <h1>{{ event.name }}</h1>
-        <p class="muted" style="margin: 2px 0 0">{{ dateFr(event.date) }} · {{ current?.name }}</p>
+        <div class="ev-title">
+          <img v-if="event.image" :src="event.image" class="ev-img" alt="" />
+          <h1>{{ event.name }}</h1>
+          <button v-if="canWrite" class="btn ghost sm no-print" title="Modifier le titre, la description, l'image…" @click="editSettings">
+            <Icon name="edit" :size="16" /> Modifier
+          </button>
+        </div>
+        <p class="muted" style="margin: 2px 0 0">
+          {{ dateFr(event.date) }} · {{ current?.name }}
+          <span class="badge" :class="state.open ? (event.orderDeadline ? 'info' : 'ok') : 'warn'" style="margin-left: 6px">{{ state.label }}</span>
+        </p>
       </div>
-      <div v-if="canWrite" class="actions no-print">
+      <div v-if="canWrite && state.open" class="actions no-print">
         <router-link :to="`/e/${eid}/saisie`" class="btn hide-sm"><Icon name="table" :size="18" /> Saisie en volume</router-link>
         <router-link v-if="products.length" :to="`/e/${eid}/bon/new`" class="btn primary"><Icon name="plus" :size="18" /> Nouveau bon</router-link>
       </div>
+    </div>
+
+    <p v-if="event.description" class="ev-desc">{{ event.description }}</p>
+
+    <div v-if="!state.open" class="notice no-print">
+      <strong>{{ state.closed ? 'Événement clôturé.' : 'La date de fin des commandes est dépassée.' }}</strong>
+      Plus aucun bon ni produit ne peut être ajouté ou modifié. Les paiements, la livraison et la caisse restent utilisables.
+      <button v-if="canWrite" class="btn sm" style="margin-left: 6px" @click="tab = 'catalogue'">
+        {{ state.closed ? 'Rouvrir' : 'Prolonger' }}
+      </button>
     </div>
 
     <div class="stats four">
@@ -84,15 +110,12 @@ const showGuide = computed(() => canWrite.value && !(products.value.length && or
       <button :class="{ on: tab === 'catalogue' }" @click="tab = 'catalogue'">Catalogue ({{ products.length }})</button>
     </div>
 
-    <button v-if="showGuide && hideGuide && tab === 'bons'" class="btn ghost sm no-print" style="margin-bottom: 8px" @click="setGuide(false)">
-      Afficher le guide de démarrage
-    </button>
-    <div v-else-if="showGuide && tab === 'bons'" class="card no-print">
-      <div class="card-head" style="margin-bottom: 10px">
-        <h3>Pour bien démarrer</h3>
-        <button class="btn ghost sm" @click="setGuide(true)">Masquer</button>
-      </div>
-      <ol class="steps">
+    <div v-if="canWrite && state.open && tab === 'bons'" class="card no-print">
+      <button class="guide-head" :aria-expanded="!hideGuide" @click="setGuide(!hideGuide)">
+        <h3>Pour bien démarrer <span class="muted small">· {{ doneSteps }}/3 étapes</span></h3>
+        <Icon name="chevron" :size="18" class="rot" :class="{ open: !hideGuide }" />
+      </button>
+      <ol v-if="!hideGuide" class="steps" style="margin-top: 12px">
         <li v-for="(s, i) in steps" :key="i" :class="{ done: s.done }">
           <span class="n"><Icon v-if="s.done" name="check" :size="16" /><template v-else>{{ i + 1 }}</template></span>
           <div class="grow"><div class="t">{{ s.t }}</div><div class="d">{{ s.d }}</div></div>
@@ -101,9 +124,9 @@ const showGuide = computed(() => canWrite.value && !(products.value.length && or
       </ol>
     </div>
 
-    <EventBons v-if="tab === 'bons'" :eid="eid" :event="event" :sum="sum" :products="products" :can-write="canWrite" @tab="tab = $event" />
+    <EventBons v-if="tab === 'bons'" :eid="eid" :event="event" :sum="sum" :products="products" :can-write="canWrite" :open="state.open" @tab="tab = $event" />
     <EventTotals v-else-if="tab === 'totaux'" :event="event" :sum="sum" />
-    <EventCash v-else-if="tab === 'caisse'" :event="event" :payments="payments" :clients="clients" />
-    <EventCatalog v-else :eid="eid" :event="event" :products="products" :orders-count="orders.length" :can-write="canWrite" />
+    <EventCash v-else-if="tab === 'caisse'" :event="event" :payments="payments" :clients="clients" :can-write="canWrite" />
+    <EventCatalog v-else :eid="eid" :event="event" :products="products" :orders-count="orders.length" :can-write="canWrite" :open="state.open" />
   </template>
 </template>

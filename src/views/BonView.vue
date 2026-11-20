@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canWrite } from '../session'
 import { useDoc, useCol, where, create, patch, remove } from '../db'
-import { byPos, summarize } from '../calc'
+import { byPos, summarize, orderState } from '../calc'
 import { eur, num, round2, today, PAY_MODES } from '../format'
 import Icon from '../components/Icon.vue'
 import PaymentsPanel from '../components/PaymentsPanel.vue'
@@ -15,6 +15,9 @@ const oid = route.params.oid
 const isNew = oid === 'new'
 
 const { item: event } = useDoc('events', eid)
+// commandes closes (événement clôturé ou date de fin dépassée) : les quantités ne bougent plus
+const open = computed(() => orderState(event.value).open)
+const editLines = computed(() => canWrite.value && (isNew || open.value))
 const { items: products } = useCol('products', where('eventId', '==', eid))
 const { items: clients } = useCol('clients')
 const orderDoc = isNew ? { item: ref(null), loading: ref(false), missing: ref(false) } : useDoc('orders', oid)
@@ -139,12 +142,19 @@ async function removeOrder() {
       </div>
     </div>
 
+    <div v-if="isNew && !open && event" class="card">
+      <h3 style="margin-top: 0">Les commandes sont closes</h3>
+      <p>Cet événement est clôturé ou sa date de fin des commandes est dépassée : il n'est plus possible d'ajouter un bon.</p>
+      <router-link :to="`/e/${eid}`" class="btn primary">Retour à l'événement</router-link>
+    </div>
+
     <div v-if="!sorted.length" class="card">
       <p>Cet événement n'a pas encore de produits.</p>
       <router-link :to="`/e/${eid}?tab=catalogue`" class="btn primary">Ajouter des produits</router-link>
     </div>
 
-    <template v-else>
+    <template v-else-if="!(isNew && !open && event)">
+      <p v-if="!isNew && !open && event" class="notice small">Les commandes sont closes : les quantités ne sont plus modifiables. Les paiements, la livraison et les notes restent possibles.</p>
       <p v-if="isNew" class="notice small">Indiquez qui commande, puis les quantités de chaque produit. Le total se calcule tout seul.</p>
 
       <div class="card">
@@ -158,7 +168,7 @@ async function removeOrder() {
             <label>Téléphone</label>
             <input v-model="phone" type="tel" :disabled="!!match" :placeholder="match ? match.phone || '—' : 'Facultatif'" />
           </div>
-          <div class="field narrow"><label>Date du bon</label><input v-model="date" type="date" :disabled="!canWrite" /></div>
+          <div class="field narrow"><label>Date du bon</label><input v-model="date" type="date" :disabled="!editLines" /></div>
         </div>
         <p v-if="isNew && clientName.trim() && !match" class="muted small" style="margin: 8px 0 0">Nouvelle personne : elle sera ajoutée à vos clients.</p>
         <p v-else-if="isNew && match" class="muted small" style="margin: 8px 0 0">Client existant.</p>
@@ -170,9 +180,9 @@ async function removeOrder() {
           <img v-if="p.image" :src="p.image" class="thumb" alt="" />
           <div class="grow"><strong>{{ p.name }}</strong><div class="muted small">{{ eur(p.price) }}<template v-if="p.note"> · {{ p.note }}</template></div></div>
           <div class="stepper">
-            <button type="button" :disabled="!canWrite || !qty[p.id]" aria-label="Moins" @click="setQty(p, (qty[p.id] || 0) - 1)">−</button>
-            <input :value="qty[p.id] || 0" inputmode="numeric" :disabled="!canWrite" @focus="$event.target.select()" @change="setQty(p, $event.target.value)" />
-            <button type="button" :disabled="!canWrite" aria-label="Plus" @click="setQty(p, (qty[p.id] || 0) + 1)">+</button>
+            <button type="button" :disabled="!editLines || !qty[p.id]" aria-label="Moins" @click="setQty(p, (qty[p.id] || 0) - 1)">−</button>
+            <input :value="qty[p.id] || 0" inputmode="numeric" :disabled="!editLines" @focus="$event.target.select()" @change="setQty(p, $event.target.value)" />
+            <button type="button" :disabled="!editLines" aria-label="Plus" @click="setQty(p, (qty[p.id] || 0) + 1)">+</button>
           </div>
           <div class="sub">{{ eur((qty[p.id] || 0) * p.price) }}</div>
         </div>
