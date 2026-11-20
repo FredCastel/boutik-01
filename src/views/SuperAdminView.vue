@@ -70,7 +70,7 @@ async function inviteAdmin(aid) {
   try {
     await setDoc(doc(db, 'invites', `${aid}__${email}`), { aid, email, role: 'admin', createdAt: serverTimestamp() })
     inviteFor.value[aid] = ''
-    done.value = `Invitation envoyée à ${email}. Cette personne aura accès dès sa prochaine connexion avec ce compte Google.`
+    done.value = `Invitation envoyée à ${email}. Cette personne aura accès dès sa prochaine connexion avec cette adresse e-mail.`
   } catch (e) {
     error.value = e.message
   }
@@ -114,7 +114,7 @@ async function inviteAdmin(aid) {
       </div>
       <form class="form-row" @submit.prevent="inviteAdmin(m.aid)">
         <div class="field" style="flex: 3"><label>Inviter un administrateur</label>
-          <input v-model="inviteFor[m.aid]" type="email" placeholder="Email Google de l'administrateur" /></div>
+          <input v-model="inviteFor[m.aid]" type="email" placeholder="E-mail de l'administrateur" /></div>
         <button class="btn">Inviter</button>
       </form>
     </div>

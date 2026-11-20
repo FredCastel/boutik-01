@@ -59,7 +59,7 @@ const initial = computed(() => (user.value?.displayName || user.value?.email || 
         <h2>Pas encore d'accès</h2>
         <p>
           Le compte <strong>{{ user.email }}</strong> n'est invité dans aucune association.
-          Demandez à un administrateur de vous inviter avec cette adresse Google, puis reconnectez-vous.
+          Demandez à un administrateur de vous inviter avec cette adresse e-mail, puis reconnectez-vous.
         </p>
       </div>
       <router-view v-else :key="`${currentAid}:${$route.path}`" />

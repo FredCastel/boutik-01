@@ -1,12 +1,27 @@
 <script setup>
+import { ref } from 'vue'
 import { current } from '../session'
 import { eur, dateFr, today } from '../format'
 import { STATUS } from '../calc'
 import Icon from './Icon.vue'
 import EmptyState from './EmptyState.vue'
 
-defineProps({ event: Object, sum: Object })
+const props = defineProps({ event: Object, sum: Object, payments: { type: Array, default: () => [] }, clients: { type: Array, default: () => [] } })
 const print = () => window.print()
+
+const busy = ref(false)
+const error = ref('')
+async function exportXlsx() {
+  busy.value = true
+  error.value = ''
+  try {
+    const { exportEventXlsx } = await import('../exportExcel')
+    await exportEventXlsx({ assoc: current.value?.name, event: props.event, sum: props.sum, payments: props.payments, clients: props.clients })
+  } catch (e) {
+    error.value = `Export impossible : ${e.message}`
+  }
+  busy.value = false
+}
 </script>
 
 <template>
@@ -21,8 +36,12 @@ const print = () => window.print()
 
     <div class="toolbar no-print">
       <span class="muted small">Récapitulatif complet de l'événement.</span>
-      <button class="btn" @click="print"><Icon name="file" :size="18" /> Exporter en PDF</button>
+      <div class="form-row">
+        <button class="btn" :disabled="busy" @click="exportXlsx"><Icon name="table" :size="18" /> {{ busy ? 'Export…' : 'Exporter en Excel' }}</button>
+        <button class="btn" @click="print"><Icon name="file" :size="18" /> Exporter en PDF</button>
+      </div>
     </div>
+    <p v-if="error" class="error no-print">{{ error }}</p>
     <p class="notice small no-print">
       Dans la fenêtre qui s'ouvre, choisissez <strong>« Enregistrer au format PDF »</strong> comme imprimante.
     </p>

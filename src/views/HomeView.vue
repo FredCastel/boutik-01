@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { current, canWrite, isSuper } from '../session'
+import { current, canWrite, isSuper, memberships, currentAid, selectAssociation } from '../session'
 import { useCol, create } from '../db'
 import { summarize, orderState } from '../calc'
 import { eur, dateFr, today, PAY_MODES } from '../format'
@@ -57,6 +57,13 @@ async function createEvent() {
   </EmptyState>
 
   <template v-else>
+    <div v-if="memberships.length > 1" class="card no-print">
+      <div class="small muted" style="margin-bottom: 8px">Vous avez accès à {{ memberships.length }} associations. Cliquez pour changer :</div>
+      <div class="chips">
+        <button v-for="m in memberships" :key="m.aid" :class="{ on: m.aid === currentAid }" @click="selectAssociation(m.aid)">{{ m.name }}</button>
+      </div>
+    </div>
+
     <div class="page-head">
       <div>
         <h1>Événements</h1>

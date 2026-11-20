@@ -68,6 +68,7 @@ service cloud.firestore {
       // Un utilisateur crée sa propre appartenance uniquement s'il a une invitation à son email
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid
+        && request.auth.token.email_verified == true
         && request.resource.data.email == email()
         && id == request.resource.data.aid + '__' + request.auth.uid
         && exists(/databases/$(database)/documents/invites/$(request.resource.data.aid + '__' + email()))
@@ -82,11 +83,12 @@ service cloud.firestore {
     // ---------- Invitations : invites/{aid}__{email} ----------
     match /invites/{id} {
       allow read: if signedIn()
-        && (resource.data.email == email() || isAdmin(resource.data.aid));
+        && ((resource.data.email == email() && request.auth.token.email_verified == true) || isAdmin(resource.data.aid));
       allow create, update: if isAdmin(request.resource.data.aid)
         && request.resource.data.role in ['admin', 'manager', 'viewer']
         && id == request.resource.data.aid + '__' + request.resource.data.email;
-      allow delete: if isAdmin(resource.data.aid) || resource.data.email == email();
+      allow delete: if isAdmin(resource.data.aid)
+        || (signedIn() && request.auth.token.email_verified == true && resource.data.email == email());
     }
   }
 }

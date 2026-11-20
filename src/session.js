@@ -1,5 +1,8 @@
 import { ref, computed } from 'vue'
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth'
+import {
+  onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut,
+  isSignInWithEmailLink, sendSignInLinkToEmail, signInWithEmailLink
+} from 'firebase/auth'
 import {
   collection, query, where, getDocs, getDoc, doc, setDoc, deleteDoc, serverTimestamp
 } from 'firebase/firestore'
@@ -24,6 +27,25 @@ export function selectAssociation(aid) {
 }
 
 export const login = () => signInWithPopup(auth, new GoogleAuthProvider())
+
+// ---------- Connexion par lien envoyé par e-mail (sans compte Google) ----------
+const EMAIL_KEY = 'boutik-email-for-link'
+export const emailLinkPending = ref(false) // un lien a été ouvert mais l'adresse n'est pas connue de cet appareil
+export const linkError = ref('')
+
+export async function sendLoginLink(email) {
+  const addr = email.trim().toLowerCase()
+  await sendSignInLinkToEmail(auth, addr, { url: window.location.origin + window.location.pathname, handleCodeInApp: true })
+  try { localStorage.setItem(EMAIL_KEY, addr) } catch { /* stockage indisponible */ }
+}
+
+export async function finishEmailLink(email) {
+  await signInWithEmailLink(auth, email.trim().toLowerCase(), window.location.href)
+  try { localStorage.removeItem(EMAIL_KEY) } catch { /* ignoré */ }
+  emailLinkPending.value = false
+  linkError.value = ''
+  window.history.replaceState(null, '', window.location.pathname + window.location.hash) // retire les paramètres du lien
+}
 export const logout = () => signOut(auth)
 
 // Transforme les invitations reçues par email en appartenances
@@ -85,6 +107,21 @@ function withTimeout(fn, ms) {
 }
 
 if (configured) {
+  // arrivée par le lien reçu par e-mail : on termine la connexion
+  if (isSignInWithEmailLink(auth, window.location.href)) {
+    let saved = null
+    try { saved = localStorage.getItem(EMAIL_KEY) } catch { /* ignoré */ }
+    if (saved) {
+      finishEmailLink(saved).catch((e) => {
+        linkError.value = e.code === 'auth/invalid-action-code'
+          ? 'Ce lien a expiré ou a déjà été utilisé. Demandez-en un nouveau.'
+          : e.message
+        emailLinkPending.value = true
+      })
+    } else {
+      emailLinkPending.value = true // autre appareil : on demande de confirmer l'adresse
+    }
+  }
   onAuthStateChanged(auth, async (u) => {
     user.value = u
     loadError.value = ''

@@ -50,7 +50,7 @@ const invite = () => guard(async () => {
   await setDoc(doc(db, 'invites', `${currentAid.value}__${addr}`), {
     aid: currentAid.value, email: addr, role: role.value, createdAt: serverTimestamp()
   })
-  done.value = `Invitation envoyée à ${addr}. Elle aura accès dès sa prochaine connexion avec ce compte Google.`
+  done.value = `Invitation envoyée à ${addr}. Elle aura accès dès sa prochaine connexion avec cette adresse e-mail.`
   email.value = ''
   await load()
 })
@@ -92,7 +92,7 @@ onMounted(load)
     <form class="card" @submit.prevent="invite">
       <h3>Inviter quelqu'un</h3>
       <div class="form-row">
-        <div class="field" style="flex: 2"><label>Email Google</label><input v-model="email" type="email" required placeholder="prenom.nom@gmail.com" /></div>
+        <div class="field" style="flex: 2"><label>Adresse e-mail</label><input v-model="email" type="email" required placeholder="prenom.nom@exemple.fr" /></div>
         <div class="field">
           <label>Rôle</label>
           <select v-model="role"><option v-for="(label, key) in ROLES" :key="key" :value="key">{{ label }}</option></select>

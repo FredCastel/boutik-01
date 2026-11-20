@@ -38,7 +38,7 @@ import Icon from '../components/Icon.vue'
     <p><strong>Suivre la livraison ?</strong> Chaque bon a un statut « Livré / À livrer » (case « Produits remis » sur le bon, ou bouton sur la fiche de la personne). Dans l'onglet « Bons », le filtre « À livrer » liste ce qu'il reste à remettre.</p>
     <p><strong>Une précision à noter ?</strong> Vous pouvez ajouter une note sur un bon, sur un produit (catalogue) ou sur un client : elle s'affiche à l'endroit utile.</p>
     <p><strong>Un bon déjà payé ?</strong> Dans « Nouveau bon », la case « Paiement déjà reçu » enregistre le paiement en même temps. Le montant peut être différent du total.</p>
-    <p><strong>Les totaux pour le fournisseur ?</strong> Onglet « Totaux » : quantités à commander, reste à encaisser, puis « Exporter en PDF ».</p>
+    <p><strong>Les totaux pour le fournisseur ?</strong> Onglet « Totaux » : quantités à commander, reste à encaisser, puis « Exporter en PDF » ou « Exporter en Excel » (un fichier à plusieurs feuilles : à commander, par personne, bons, paiements).</p>
     <p><strong>Utiliser sur téléphone ?</strong> Sur Android (Chrome) : menu ⋮ puis « Installer l'application ». Sur iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
   </div>
 

@@ -125,7 +125,7 @@ const doneSteps = computed(() => steps.value.slice(0, 3).filter((s) => s.done).l
     </div>
 
     <EventBons v-if="tab === 'bons'" :eid="eid" :event="event" :sum="sum" :products="products" :can-write="canWrite" :open="state.open" @tab="tab = $event" />
-    <EventTotals v-else-if="tab === 'totaux'" :event="event" :sum="sum" />
+    <EventTotals v-else-if="tab === 'totaux'" :event="event" :sum="sum" :payments="payments" :clients="clients" />
     <EventCash v-else-if="tab === 'caisse'" :event="event" :payments="payments" :clients="clients" :can-write="canWrite" />
     <EventCatalog v-else :eid="eid" :event="event" :products="products" :orders-count="orders.length" :can-write="canWrite" :open="state.open" />
   </template>

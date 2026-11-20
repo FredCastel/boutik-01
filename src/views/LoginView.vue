@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { login } from '../session'
+import { login, sendLoginLink, finishEmailLink, emailLinkPending, linkError } from '../session'
 import Icon from '../components/Icon.vue'
 
 const msg = ref('')
@@ -14,6 +14,37 @@ async function go() {
   } catch (e) {
     if (e.code === 'auth/popup-blocked') msg.value = 'Le navigateur a bloqué la fenêtre de connexion. Autorisez les pop-ups pour ce site puis réessayez.'
     else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') msg.value = e.message
+  }
+  busy.value = false
+}
+
+const email = ref('')
+const sentTo = ref('')
+
+function friendly(e) {
+  if (e.code === 'auth/operation-not-allowed') return "La connexion par e-mail n'est pas encore activée sur ce service."
+  if (e.code === 'auth/invalid-action-code') return 'Ce lien a expiré ou a déjà été utilisé. Demandez-en un nouveau.'
+  if (e.code === 'auth/invalid-email') return "Cette adresse e-mail n'est pas valide."
+  return e.message
+}
+async function sendLink() {
+  busy.value = true
+  msg.value = ''
+  try {
+    await sendLoginLink(email.value)
+    sentTo.value = email.value.trim().toLowerCase()
+  } catch (e) {
+    msg.value = friendly(e)
+  }
+  busy.value = false
+}
+async function confirmLink() {
+  busy.value = true
+  msg.value = ''
+  try {
+    await finishEmailLink(email.value)
+  } catch (e) {
+    msg.value = friendly(e)
   }
   busy.value = false
 }
@@ -47,7 +78,21 @@ const features = [
         </svg>
         Se connecter avec Google
       </button>
-      <p class="muted small">Accès sur invitation : demandez à l'administrateur de votre association de vous inviter avec votre adresse Google.</p>
+      <div class="or"><span>ou avec une adresse e-mail (sans compte Google)</span></div>
+      <form v-if="emailLinkPending" class="email-form" @submit.prevent="confirmLink">
+        <p style="margin: 0">Pour terminer la connexion, confirmez l'adresse e-mail à laquelle le lien a été envoyé.</p>
+        <input v-model="email" type="email" required autocomplete="email" placeholder="Votre adresse e-mail" />
+        <button class="btn primary big" :disabled="busy">Se connecter</button>
+      </form>
+      <form v-else-if="!sentTo" class="email-form" @submit.prevent="sendLink">
+        <input v-model="email" type="email" required autocomplete="email" placeholder="Votre adresse e-mail" />
+        <button class="btn big" :disabled="busy">Recevoir un lien de connexion</button>
+      </form>
+      <p v-else class="notice email-form">
+        Un lien de connexion a été envoyé à <strong>{{ sentTo }}</strong>. Ouvrez-le depuis cet appareil et pensez à vérifier vos courriers indésirables.
+      </p>
+      <p class="muted small">Accès sur invitation : demandez à l'administrateur de votre association de vous inviter avec votre adresse e-mail.</p>
+      <p v-if="linkError" class="error">{{ linkError }}</p>
       <p v-if="msg" class="error">{{ msg }}</p>
     </section>
 

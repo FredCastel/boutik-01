@@ -9,6 +9,8 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
+      // la bibliothèque Excel (~1 Mo) n'est chargée qu'au moment d'un export : on ne la met pas en cache à l'installation
+      workbox: { globIgnores: ['**/exceljs*'] },
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'Boutik',

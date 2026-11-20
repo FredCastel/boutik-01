@@ -1,7 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import Sortable from 'sortablejs'
 import { useRouter } from 'vue-router'
-import { create, patch, remove, removeWhere } from '../db'
+import { db } from '../firebase'
+import { create, patch, remove, removeWhere, docRef, settle, writeBatch } from '../db'
 import { num, dateFr, today, PAY_MODES } from '../format'
 import { byPos, orderState } from '../calc'
 import Icon from './Icon.vue'
@@ -44,6 +46,42 @@ const removeProduct = (p) => guard(async () => {
     : `Supprimer « ${p.name} » ?`
   if (confirm(msg)) await remove('products', p.id)
 })
+// Glisser-déposer : on renumérote toute la liste (1000, 2000…) pour rester cohérent
+const reorder = (from, to) => guard(async () => {
+  if (from === to) return
+  const list = sorted()
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+  const batch = writeBatch(db)
+  list.forEach((x, k) => {
+    if ((x.pos || 0) !== (k + 1) * 1000) batch.update(docRef('products', x.id), { pos: (k + 1) * 1000 })
+  })
+  await settle(batch.commit(), 8000)
+})
+
+let sortable = null
+onMounted(() => {
+  const host = document.getElementById('products-title')?.parentElement
+  if (!host) return
+  sortable = Sortable.create(host, {
+    draggable: '.line',
+    handle: '.grip',
+    animation: 150,
+    ghostClass: 'drag-ghost',
+    disabled: !canProducts.value,
+    onEnd(evt) {
+      // Sortable a déplacé le noeud à la main : on le remet en place et c'est Vue qui réordonne via les données
+      const parent = evt.from
+      parent.removeChild(evt.item)
+      const lines = [...parent.querySelectorAll(':scope > .line')]
+      if (evt.oldDraggableIndex < lines.length) parent.insertBefore(evt.item, lines[evt.oldDraggableIndex])
+      else parent.insertBefore(evt.item, lines.at(-1)?.nextSibling || null)
+      reorder(evt.oldDraggableIndex, evt.newDraggableIndex)
+    }
+  })
+})
+watch(canProducts, (v) => sortable?.option('disabled', !v))
+onBeforeUnmount(() => sortable?.destroy())
 const saveEvent = (data) => guard(() => patch('events', props.eid, data))
 
 const closeEvent = () => guard(async () => {
@@ -70,9 +108,9 @@ const removeEvent = () => guard(async () => {
   <p v-if="error" class="error">{{ error }}</p>
 
   <div class="card">
-    <h3>Produits de l'événement</h3>
+    <h3 id="products-title">Produits de l'événement</h3>
     <p class="muted small">
-      Les produits apparaissent sur les bons de commande dans cet ordre. Une modification de prix s'applique à tous les bons de l'événement.
+      Les produits apparaissent sur les bons de commande dans cet ordre : faites glisser un produit par sa poignée (⋮⋮) pour le déplacer. Une modification de prix s'applique à tous les bons de l'événement.
       Les photos sont réduites automatiquement.
     </p>
     <p v-if="canWrite && !open" class="notice small">Les commandes sont closes : le catalogue n'est plus modifiable. Rouvrez l'événement ou prolongez la date pour le changer.</p>
@@ -86,6 +124,7 @@ const removeEvent = () => guard(async () => {
 
     <p v-if="!products.length" class="muted">Aucun produit pour l'instant.</p>
     <div v-for="p in sorted()" :key="p.id" class="line wrap">
+      <span v-if="canProducts" class="grip" title="Glisser pour changer l'ordre"><Icon name="grip" :size="22" /></span>
       <ImagePicker :model-value="p.image" :size="48" :disabled="!canProducts" @update:model-value="saveProduct(p, 'image', $event)" />
       <input class="grow" :value="p.name" :disabled="!canProducts" @change="saveProduct(p, 'name', $event.target.value)" />
       <input style="width: 100px; text-align: right" :value="(Number(p.price) || 0).toFixed(2).replace('.', ',')" inputmode="decimal" :disabled="!canProducts"
